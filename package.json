@@ -9,9 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "isomorphic-dompurify": "^3.13.0",
+    "nanoid": "^5.1.11",
     "next": "16.2.6",
+    "pdfjs-dist": "^4.8.69",
+    "puppeteer": "^25.0.4",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
