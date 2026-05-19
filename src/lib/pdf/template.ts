@@ -22,14 +22,14 @@ const SECTION_ORDER = [
 ] as const;
 
 const SECTION_TITLES: Record<string, string> = {
-  work: 'Experiencia Profesional',
-  education: 'Educación',
-  skills: 'Habilidades',
-  languages: 'Idiomas',
-  projects: 'Proyectos',
-  certifications: 'Certificaciones',
-  volunteer: 'Voluntariado',
-  publications: 'Publicaciones',
+  work: 'Professional Experience',
+  education: 'Education',
+  skills: 'Additional Skills',
+  languages: 'Languages',
+  projects: 'Projects',
+  certifications: 'Certifications',
+  volunteer: 'Volunteer',
+  publications: 'Publications',
 };
 
 function escapeHtml(str: string): string {
@@ -64,10 +64,10 @@ function renderWorkSection(entries: CVData['work']): string {
       (e) => `
     <div class="entry">
       <div class="entry-header">
-        <div class="entry-title">${escapeHtml(e.position)}</div>
+        <div class="entry-company">${escapeHtml(e.company)}</div>
         <div class="entry-date">${renderDateRange(e.startDate, e.endDate, true)}</div>
       </div>
-      <div class="entry-subtitle">${escapeHtml(e.company)}</div>
+      <div class="entry-position">${escapeHtml(e.position)}</div>
       ${e.summary ? `<div class="entry-description">${markdownToHTML(e.summary)}</div>` : ''}
       ${renderHighlights(e.highlights)}
     </div>`,
@@ -81,37 +81,29 @@ function renderEducationSection(entries: CVData['education']): string {
       (e) => `
     <div class="entry">
       <div class="entry-header">
-        <div class="entry-title">${escapeHtml(e.area)}${e.studyType ? ` — ${escapeHtml(e.studyType)}` : ''}</div>
+        <div class="entry-company">${escapeHtml(e.institution)}</div>
         <div class="entry-date">${renderDateRange(e.startDate, e.endDate)}</div>
       </div>
-      <div class="entry-subtitle">${escapeHtml(e.institution)}${e.score ? ` · ${escapeHtml(e.score)}` : ''}</div>
+      <div class="entry-position">${escapeHtml(e.area)}${e.studyType ? ` — ${escapeHtml(e.studyType)}` : ''}</div>
+      ${e.score ? `<div class="entry-description">${escapeHtml(e.score)}</div>` : ''}
     </div>`,
     )
     .join('');
 }
 
 function renderSkillsSection(entries: CVData['skills']): string {
-  return entries
+  return `<ul class="highlights">${entries
     .map(
-      (e) => `
-    <div class="entry entry-inline">
-      <span class="entry-title">${escapeHtml(e.name)}${e.level ? ` (${escapeHtml(e.level)})` : ''}</span>
-      <span class="keywords">${e.keywords.map((k) => escapeHtml(k)).join(', ')}</span>
-    </div>`,
+      (e) =>
+        `<li><strong>${escapeHtml(e.name)}:</strong> ${e.keywords.map((k) => escapeHtml(k)).join(', ')}${e.level ? ` <span class="entry-level">(${escapeHtml(e.level)})</span>` : ''}</li>`,
     )
-    .join('');
+    .join('')}</ul>`;
 }
 
 function renderLanguagesSection(entries: CVData['languages']): string {
-  return entries
-    .map(
-      (e) => `
-    <div class="entry entry-inline">
-      <span class="entry-title">${escapeHtml(e.language)}</span>
-      <span class="keywords">${escapeHtml(e.fluency)}</span>
-    </div>`,
-    )
-    .join('');
+  return `<ul class="highlights">${entries
+    .map((e) => `<li><strong>${escapeHtml(e.language)}:</strong> ${escapeHtml(e.fluency)}</li>`)
+    .join('')}</ul>`;
 }
 
 function renderProjectsSection(entries: CVData['projects']): string {
@@ -132,18 +124,12 @@ function renderProjectsSection(entries: CVData['projects']): string {
 }
 
 function renderCertificationsSection(entries: CVData['certifications']): string {
-  return entries
+  return `<ul class="highlights">${entries
     .map(
-      (e) => `
-    <div class="entry">
-      <div class="entry-header">
-        <div class="entry-title">${escapeHtml(e.name)}${e.url ? ` <a href="${escapeHtml(e.url)}">[ver]</a>` : ''}</div>
-        <div class="entry-date">${e.date ? formatDate(e.date) : ''}</div>
-      </div>
-      <div class="entry-subtitle">${escapeHtml(e.issuer)}</div>
-    </div>`,
+      (e) =>
+        `<li>${e.date ? `${formatDate(e.date)} — ` : ''}<strong>${escapeHtml(e.name)}</strong>${e.issuer ? `, ${escapeHtml(e.issuer)}` : ''}${e.url ? ` <a href="${escapeHtml(e.url)}">[link]</a>` : ''}</li>`,
     )
-    .join('');
+    .join('')}</ul>`;
 }
 
 function renderVolunteerSection(entries: CVData['volunteer']): string {
@@ -300,9 +286,7 @@ export function generatePdfHTML(data: CVData, options?: TemplateOptions): string
   .summary {
     margin-bottom: 10pt;
     font-size: ${summarySize}pt;
-    color: #374151;
-    border-left: 2px solid #e5e5e5;
-    padding-left: 8pt;
+    color: #1a1a1a;
   }
   .summary p {
     margin: 0;
@@ -330,19 +314,32 @@ export function generatePdfHTML(data: CVData, options?: TemplateOptions): string
     justify-content: space-between;
     align-items: baseline;
   }
+  .entry-company {
+    font-weight: 700;
+    font-size: ${entryTitleSize}pt;
+  }
+  .entry-position {
+    font-size: ${entrySubtitleSize}pt;
+    color: #1a1a1a;
+    margin-bottom: 2pt;
+  }
   .entry-title {
     font-weight: 600;
     font-size: ${entryTitleSize}pt;
   }
   .entry-date {
     font-size: ${entryDateSize}pt;
-    color: #6b7280;
+    color: #4b5563;
     white-space: nowrap;
     margin-left: 8pt;
   }
   .entry-subtitle {
     font-size: ${entrySubtitleSize}pt;
     color: #4b5563;
+  }
+  .entry-level {
+    font-size: ${keywordsSize}pt;
+    color: #6b7280;
   }
   .entry-description {
     font-size: ${entryDescSize}pt;
@@ -351,30 +348,17 @@ export function generatePdfHTML(data: CVData, options?: TemplateOptions): string
   .entry-description p {
     margin: 0;
   }
-  .entry-inline {
-    display: flex;
-    gap: 6pt;
-    align-items: baseline;
-    margin-bottom: 3pt;
-  }
-  .entry-inline .entry-title {
-    font-weight: 600;
-    white-space: nowrap;
-  }
-  .entry-inline .entry-title::after {
-    content: ':';
-  }
   .keywords {
     font-size: ${keywordsSize}pt;
     color: #6b7280;
   }
   .highlights {
-    margin: 2pt 0 0 14pt;
+    margin: 3pt 0 0 14pt;
     padding: 0;
     font-size: ${highlightsSize}pt;
   }
   .highlights li {
-    margin-bottom: 1pt;
+    margin-bottom: 2pt;
   }
   .highlights li p {
     display: inline;
