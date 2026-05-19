@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Headless CV
 
-## Getting Started
+Editor de currículum que separa estrictamente el **contenido** (datos estructurados) de la **presentación** (plantillas renderizadas en servidor), garantizando PDFs pixel-perfect independientemente del dispositivo o navegador.
 
-First, run the development server:
+Sin registro. Sin cuentas. Los datos se guardan en `localStorage`.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
+## Características
+
+- **Formularios estructurados** — Edita todas las secciones de tu CV en formato [JSON Resume](https://jsonresume.org/): experiencia, educación, habilidades, proyectos, idiomas, certificaciones y más.
+- **Toggles por sección y entrada** — Activa o desactiva secciones y entradas individuales sin borrarlas, para adaptar el CV a cada oferta.
+- **Generación de PDF server-side** — Renderizado con Puppeteer sobre una plantilla HTML/CSS fija. El resultado es siempre consistente.
+- **Importación / Exportación JSON** — Importa y exporta tu CV en formato JSON Resume estándar.
+- **Autorelleno con IA** — Sube un PDF de tu CV existente y usa OpenAI, Anthropic, Gemini u Ollama para extraer los datos automáticamente.
+- **Persistencia local** — Todo se guarda en `localStorage`, sin backend de datos.
+
+## Stack
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 16 (App Router) |
+| UI | React 19 + Tailwind CSS 4 |
+| Validación | Zod |
+| PDF generación | Puppeteer |
+| PDF extracción | pdfjs-dist |
+| Sanitización | isomorphic-dompurify |
+| Lenguaje | TypeScript |
+
+## Instalación
+
+\`\`\`bash
+pnpm install
+\`\`\`
+
+## Desarrollo
+
+\`\`\`bash
 pnpm dev
-# or
-bun dev
-```
+\`\`\`
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Abre [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Build de producción
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+\`\`\`bash
+pnpm build
+pnpm start
+\`\`\`
 
-## Learn More
+## Variables de entorno
 
-To learn more about Next.js, take a look at the following resources:
+El proyecto no requiere variables de entorno para funcionar. Las claves de API para IA se introducen directamente en la interfaz y nunca se envían al servidor de forma persistente.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Si usas Ollama con una URL personalizada, puedes configurarla:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+\`\`\`env
+OLLAMA_BASE_URL=http://localhost:11434
+\`\`\`
 
-## Deploy on Vercel
+## Estructura del proyecto
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+\`\`\`
+src/
+├── app/
+│   ├── page.tsx              # Landing / inicio
+│   ├── editor/page.tsx       # Editor principal
+│   └── api/
+│       ├── generate-pdf/     # Endpoint de generación de PDF
+│       ├── parse-cv/         # Endpoint de extracción IA
+│       └── verify-key/       # Verificación de clave API
+├── components/
+│   ├── forms/                # Formularios por sección
+│   ├── import-export/        # Diálogos de importación y exportación
+│   ├── preview/              # Vista previa del CV
+│   └── ui/                   # Componentes base
+├── hooks/                    # Lógica de estado y efectos
+├── lib/                      # Utilidades, schemas, lógica PDF e IA
+└── providers/                # Contexto global del CV
+\`\`\`
