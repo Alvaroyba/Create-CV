@@ -184,6 +184,81 @@ function ensureIdsOnEntries(raw: Record<string, unknown>): Record<string, unknow
   return result;
 }
 
+const DATE_REGEX = /^\d{4}(-\d{2})?$/;
+const DATE_FIELD_KEYS = ['startDate', 'endDate', 'date', 'releaseDate'];
+const SECTION_KEYS: SectionKey[] = [
+  'work', 'education', 'skills', 'languages',
+  'projects', 'certifications', 'volunteer', 'publications',
+];
+
+function isValidUrl(str: string): boolean {
+  try {
+    new URL(str);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Cleans up common issues in AI-extracted JSON:
+ * - Invalid email addresses → removed
+ * - Dates not matching YYYY or YYYY-MM → removed
+ * - Invalid URLs → set to ''
+ * - Non-string values where strings are expected → removed
+ */
+function sanitizeAiOutput(raw: Record<string, unknown>): Record<string, unknown> {
+  const sanitized = { ...raw };
+
+  if (sanitized.basics && typeof sanitized.basics === 'object') {
+    const basics = { ...(sanitized.basics as Record<string, unknown>) };
+
+    if (typeof basics.email === 'string' && basics.email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basics.email)) delete basics.email;
+    }
+    if (typeof basics.url === 'string' && basics.url && !isValidUrl(basics.url)) {
+      basics.url = '';
+    }
+    if (Array.isArray(basics.profiles)) {
+      basics.profiles = (basics.profiles as Record<string, unknown>[]).map((p) => ({
+        ...p,
+        url: typeof p.url === 'string' && p.url && !isValidUrl(p.url) ? '' : p.url,
+      }));
+    }
+
+    sanitized.basics = basics;
+  }
+
+  for (const key of SECTION_KEYS) {
+    if (!Array.isArray(sanitized[key])) continue;
+    sanitized[key] = (sanitized[key] as Record<string, unknown>[]).map((entry) => {
+      const e = { ...entry };
+
+      for (const dateKey of DATE_FIELD_KEYS) {
+        if (typeof e[dateKey] === 'string' && e[dateKey]) {
+          if (!DATE_REGEX.test(e[dateKey] as string)) delete e[dateKey];
+        }
+      }
+
+      if (typeof e.url === 'string' && e.url && !isValidUrl(e.url)) e.url = '';
+
+      if (Array.isArray(e.highlights)) {
+        e.highlights = (e.highlights as unknown[]).filter((h) => typeof h === 'string');
+      }
+      if (Array.isArray(e.keywords)) {
+        e.keywords = (e.keywords as unknown[]).filter((k) => typeof k === 'string');
+      }
+      if (Array.isArray(e.courses)) {
+        e.courses = (e.courses as unknown[]).filter((c) => typeof c === 'string');
+      }
+
+      return e;
+    });
+  }
+
+  return sanitized;
+}
+
 function buildSections(data: CVData): Record<string, number | boolean> {
   const sections: Record<string, number | boolean> = {};
   sections.basics = Boolean(data.basics.name);
@@ -285,22 +360,21 @@ export async function POST(request: Request) {
     );
   }
 
-  const withIds = ensureIdsOnEntries(parsed);
+  const sanitized = sanitizeAiOutput(parsed);
+  const withIds = ensureIdsOnEntries(sanitized);
   const result = CVDataSchema.safeParse(withIds);
 
   if (!result.success) {
-    // Tolerant: try parsing with defaults
-    const lenient = CVDataSchema.safeParse({});
-    if (!lenient.success) {
+    // Tolerant: merge with safe defaults and try again
+    const base = CVDataSchema.safeParse({ basics: {} });
+    if (!base.success) {
       return NextResponse.json(
         { error: 'No se pudieron procesar los datos extraídos.' },
         { status: 422 },
       );
     }
 
-    // Merge valid fields
-    const base = lenient.data;
-    const tolerantResult = CVDataSchema.safeParse({ ...base, ...withIds });
+    const tolerantResult = CVDataSchema.safeParse({ ...base.data, ...withIds });
     if (tolerantResult.success) {
       const warnings = buildWarnings(tolerantResult.data);
       warnings.push('Algunos datos pueden no haberse extraído correctamente. Revisa y completa manualmente.');
