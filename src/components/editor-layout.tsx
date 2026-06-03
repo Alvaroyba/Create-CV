@@ -172,7 +172,7 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
 
         {/* Preview panel — desktop only */}
         <div className="hidden lg:flex lg:w-[45%] border-l border-gray-200 bg-gray-100 p-6 overflow-y-auto items-start justify-center">
-          <CVPreview data={data} pageFormat={pageSize} />
+          <CVPreview data={data} pageFormat={pageSize} singlePage={singlePage} />
         </div>
       </div>
 
@@ -202,7 +202,7 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
             </Button>
           </div>
           <div className="flex-1 overflow-y-auto p-4 flex items-start justify-center">
-            <CVPreview data={data} pageFormat={pageSize} />
+            <CVPreview data={data} pageFormat={pageSize} singlePage={singlePage} />
           </div>
         </div>
       )}

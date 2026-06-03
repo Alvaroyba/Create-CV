@@ -2,7 +2,16 @@ import { z } from 'zod';
 import { MAX_ENTRIES, MAX_FIELD_LENGTHS } from '@/lib/constants';
 
 const dateField = z.string().regex(/^\d{4}(-\d{2})?$/).optional();
-const urlField = z.union([z.string().url(), z.literal('')]).optional();
+const urlField = z.preprocess((val) => {
+  if (typeof val === 'string' && val.trim() !== '') {
+    const trimmed = val.trim();
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return `https://${trimmed}`;
+    }
+    return trimmed;
+  }
+  return val;
+}, z.union([z.string().url(), z.literal('')]).optional());
 const markdownField = (max: number) => z.string().max(max).default('');
 
 export const ProfileSchema = z.object({

@@ -13,7 +13,7 @@ export const MAX_FIELD_LENGTHS = {
   institution: 100,
   area: 120,
   studyType: 80,
-  score: 20,
+  score: 100,
   skillName: 80,
   skillLevel: 40,
   language: 60,

@@ -242,19 +242,24 @@ export function generatePdfHTML(data: CVData, options?: TemplateOptions): string
 <style>
   @page {
     size: ${pageSize};
-    margin: 0;
+    margin: ${margins}mm;
   }
   * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
+    overflow-wrap: break-word;
   }
   body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     font-size: ${fontSize}pt;
     line-height: ${lineHeight};
     color: #1a1a1a;
-    padding: ${margins}mm;
+  }
+  @media screen {
+    body {
+      padding: ${margins}mm;
+    }
   }
   a {
     color: #2563eb;

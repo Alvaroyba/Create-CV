@@ -235,8 +235,10 @@ function sanitizeAiOutput(raw: Record<string, unknown>): Record<string, unknown>
       const e = { ...entry };
 
       for (const dateKey of DATE_FIELD_KEYS) {
-        if (typeof e[dateKey] === 'string' && e[dateKey]) {
-          if (!DATE_REGEX.test(e[dateKey] as string)) delete e[dateKey];
+        if (typeof e[dateKey] === 'string') {
+          if (!e[dateKey] || !DATE_REGEX.test(e[dateKey] as string)) {
+            delete e[dateKey];
+          }
         }
       }
 
@@ -353,7 +355,8 @@ export async function POST(request: Request) {
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(rawContent);
-  } catch {
+  } catch (parseError) {
+    console.error("JSON Parse Error:", parseError, "Raw content:", rawContent);
     return NextResponse.json(
       { error: 'No se pudieron extraer datos estructurados de tu CV. Intenta con un PDF con formato más convencional.' },
       { status: 422 },
@@ -384,6 +387,10 @@ export async function POST(request: Request) {
         warnings,
       });
     }
+
+    console.error("Strict parse error:", result.error);
+    console.error("Tolerant parse error:", tolerantResult.error);
+    console.error("Raw withIds:", JSON.stringify(withIds, null, 2));
 
     return NextResponse.json(
       { error: 'No se pudieron extraer datos estructurados de tu CV.' },

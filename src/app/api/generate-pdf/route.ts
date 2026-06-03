@@ -55,7 +55,8 @@ function errorResponse(code: string, message: string, status: number) {
 }
 
 export async function POST(request: NextRequest) {
-  const ip = getClientIp(request);
+  try {
+    const ip = getClientIp(request);
   if (!checkRateLimit(ip)) {
     return errorResponse(
       'RATE_LIMIT',
@@ -77,7 +78,9 @@ export async function POST(request: NextRequest) {
 
   const result = GeneratePdfRequestSchema.safeParse(body);
   if (!result.success) {
-    const firstError = result.error.issues[0]?.message ?? 'Datos inválidos';
+    const issue = result.error.issues[0];
+    const pathStr = issue?.path.join('.') ?? '';
+    const firstError = `${issue?.message ?? 'Datos inválidos'} (Ruta: ${pathStr})`;
     return errorResponse('VALIDATION_ERROR', firstError, 400);
   }
 
@@ -110,6 +113,11 @@ export async function POST(request: NextRequest) {
     if (error instanceof RenderTimeoutError) {
       return errorResponse('TIMEOUT_ERROR', error.message, 504);
     }
+    console.error('PDF Generation Error:', error);
     return errorResponse('RENDER_ERROR', 'Ocurrió un error inesperado al generar el PDF.', 500);
+  }
+  } catch (globalError) {
+    console.error('Global API Error:', globalError);
+    return errorResponse('RENDER_ERROR', 'Ocurrió un error inesperado en el servidor.', 500);
   }
 }

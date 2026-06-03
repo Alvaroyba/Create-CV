@@ -167,11 +167,11 @@ export function useCV(initialData?: CVData): UseCVReturn {
     const errors: Record<string, string> = {};
 
     if (!data.basics.name.trim()) {
-      errors['basics.name'] = 'El nombre es obligatorio';
+      errors['basics.name'] = 'Pestaña "Datos personales": El nombre es obligatorio.';
     }
 
     if (!data.basics.email && !data.basics.phone.trim()) {
-      errors['basics.contact'] = 'Se requiere al menos un dato de contacto (email o teléfono)';
+      errors['basics.contact'] = 'Pestaña "Datos personales": Se requiere al menos un dato de contacto (email o teléfono).';
     }
 
     const sectionKeys: SectionKey[] = ['work', 'education', 'skills', 'languages', 'projects', 'certifications', 'volunteer', 'publications'];
@@ -180,7 +180,7 @@ export function useCV(initialData?: CVData): UseCVReturn {
     );
 
     if (!hasActiveEntry) {
-      errors['sections'] = 'Se requiere al menos una sección con una entrada activa';
+      errors['sections'] = 'Se requiere al menos una sección con una entrada activa para poder exportar.';
     }
 
     return { valid: Object.keys(errors).length === 0, errors };

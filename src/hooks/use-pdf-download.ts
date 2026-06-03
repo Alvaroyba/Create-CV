@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useCVContext } from '@/providers/cv-provider';
 import type { PageFormat } from '@/lib/constants';
 
@@ -27,6 +27,11 @@ export function usePdfDownload(pdfOptions?: UsePdfDownloadOptions): UsePdfDownlo
   const { data, validate } = useCVContext();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Clear error when data changes
+  useEffect(() => {
+    setError(null);
+  }, [data]);
 
   const download = useCallback(async () => {
     if (isLoading) return;
@@ -71,7 +76,11 @@ export function usePdfDownload(pdfOptions?: UsePdfDownloadOptions): UsePdfDownlo
       } else {
         const body = await response.json().catch(() => null);
         const code = body?.error?.code ?? 'RENDER_ERROR';
-        setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.RENDER_ERROR);
+        if (code === 'VALIDATION_ERROR' && body?.error?.message) {
+          setError(body.error.message);
+        } else {
+          setError(ERROR_MESSAGES[code] ?? ERROR_MESSAGES.RENDER_ERROR);
+        }
       }
     } catch {
       setError('Error de conexión. Verifica tu conexión a internet e intenta de nuevo.');
