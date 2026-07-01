@@ -14,6 +14,7 @@ import { SECTION_CONFIGS, SECTION_ORDER } from '@/components/forms/section-confi
 import { ImportDialog } from '@/components/import-export/import-dialog';
 import { PdfImportDialog } from '@/components/import-export/pdf-import-dialog';
 import { AISettingsDialog } from '@/components/import-export/ai-settings-dialog';
+import { TailorDialog } from '@/components/import-export/tailor-dialog';
 import { ExportButton } from '@/components/import-export/export-button';
 import { usePdfDownload } from '@/hooks/use-pdf-download';
 import { PAGE_FORMATS, PREFERENCES_KEY } from '@/lib/constants';
@@ -54,6 +55,7 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
   const [showImport, setShowImport] = useState(false);
   const [showPdfImport, setShowPdfImport] = useState(initialOpenPdfImport);
   const [showAISettings, setShowAISettings] = useState(false);
+  const [showTailor, setShowTailor] = useState(false);
   const [pageSize, setPageSize] = useState<PageFormat>('letter');
   const [singlePage, setSinglePage] = useState(false);
 
@@ -120,6 +122,9 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setShowImport(true)}>
               Importar
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setShowTailor(true)}>
+              Adaptar a oferta
             </Button>
             <Button variant="ghost" size="sm" onClick={() => setShowAISettings(true)} aria-label="Configurar IA">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -214,6 +219,11 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
         onOpenSettings={() => setShowAISettings(true)}
       />
       <AISettingsDialog open={showAISettings} onClose={() => setShowAISettings(false)} />
+      <TailorDialog
+        open={showTailor}
+        onClose={() => setShowTailor(false)}
+        onOpenSettings={() => setShowAISettings(true)}
+      />
     </div>
   );
 }

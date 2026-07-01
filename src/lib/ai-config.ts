@@ -1,20 +1,16 @@
-export type AIProvider = 'ollama' | 'openai' | 'anthropic' | 'gemini';
+export type AIProvider = 'local' | 'openai' | 'anthropic' | 'gemini';
 
 export interface AIConfig {
   provider: AIProvider;
   apiKey: string;
   model: string;
+  baseUrl?: string;
 }
 
 export const AI_PROVIDERS: Record<AIProvider, { label: string; models: { id: string; label: string }[] }> = {
-  ollama: {
-    label: 'Ollama (local)',
-    models: [
-      { id: 'llama3', label: 'Llama 3 8B' },
-      { id: 'llama3.1', label: 'Llama 3.1 8B' },
-      { id: 'mistral', label: 'Mistral 7B' },
-      { id: 'gemma2', label: 'Gemma 2 9B' },
-    ],
+  local: {
+    label: 'Local (Ollama, vLLM, MLX)',
+    models: [],
   },
   openai: {
     label: 'OpenAI',
@@ -32,11 +28,7 @@ export const AI_PROVIDERS: Record<AIProvider, { label: string; models: { id: str
   },
   gemini: {
     label: 'Google Gemini',
-    models: [
-      { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (económico)' },
-      { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-      { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
-    ],
+    models: [],
   },
 };
 
@@ -48,17 +40,22 @@ export function loadAIConfig(): AIConfig | null {
     const raw = localStorage.getItem(AI_CONFIG_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as AIConfig;
-    if (!parsed.provider || !parsed.apiKey || !parsed.model) return null;
+    if (!parsed.provider || !parsed.model) return null;
+    if (parsed.provider !== 'local' && !parsed.apiKey) return null;
 
-    // Validate that the saved provider and model still exist
+    // Validate that the saved provider still exists
     const providerInfo = AI_PROVIDERS[parsed.provider];
     if (!providerInfo) return null;
 
-    const modelValid = providerInfo.models.some((m) => m.id === parsed.model);
-    if (!modelValid) {
-      // Auto-migrate: keep the key but switch to the first available model
-      parsed.model = providerInfo.models[0].id;
-      saveAIConfig(parsed);
+    // Only validate model strictly if the provider has hardcoded models
+    const isDynamicModels = providerInfo.models.length === 0;
+    if (!isDynamicModels) {
+      const modelValid = providerInfo.models.some((m) => m.id === parsed.model);
+      if (!modelValid) {
+        // Auto-migrate: keep the key but switch to the first available model
+        parsed.model = providerInfo.models[0].id;
+        saveAIConfig(parsed);
+      }
     }
 
     return parsed;

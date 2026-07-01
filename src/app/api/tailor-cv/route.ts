@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
-import { buildCVExtractionPrompt } from '@/lib/ai-prompt';
+import { buildCVTailorPrompt, buildCVGenerateFromOfferPrompt } from '@/lib/ai-prompt-tailor';
 import { ApiError, getProviderCaller, callWithRetry } from '@/lib/ai-providers';
 import { CVDataSchema } from '@/lib/schemas/cv';
 import type { CVData, SectionKey } from '@/lib/schemas/cv';
 import { generateId } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
+export const maxDuration = 90;
 
-interface ParseRequest {
-  text: string;
+interface TailorRequest {
+  jobOffer: string;
+  cvData?: CVData;
   provider: 'openai' | 'anthropic' | 'gemini' | 'local';
   apiKey: string;
   model: string;
@@ -51,13 +52,6 @@ function isValidUrl(str: string): boolean {
   }
 }
 
-/**
- * Cleans up common issues in AI-extracted JSON:
- * - Invalid email addresses → removed
- * - Dates not matching YYYY or YYYY-MM → removed
- * - Invalid URLs → set to ''
- * - Non-string values where strings are expected → removed
- */
 function sanitizeAiOutput(raw: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...raw };
 
@@ -112,52 +106,18 @@ function sanitizeAiOutput(raw: Record<string, unknown>): Record<string, unknown>
   return sanitized;
 }
 
-function buildSections(data: CVData): Record<string, number | boolean> {
-  const sections: Record<string, number | boolean> = {};
-  sections.basics = Boolean(data.basics.name);
-  const sectionKeys: SectionKey[] = [
-    'work', 'education', 'skills', 'languages',
-    'projects', 'certifications', 'volunteer', 'publications',
-  ];
-  for (const key of sectionKeys) {
-    sections[key] = data[key].length;
-  }
-  return sections;
-}
-
-function buildWarnings(data: CVData): string[] {
-  const warnings: string[] = [];
-  const labels: Record<SectionKey, string> = {
-    work: 'experiencia laboral',
-    education: 'educación',
-    skills: 'habilidades',
-    languages: 'idiomas',
-    projects: 'proyectos',
-    certifications: 'certificaciones',
-    volunteer: 'voluntariado',
-    publications: 'publicaciones',
-  };
-
-  for (const [key, label] of Object.entries(labels)) {
-    if (data[key as SectionKey].length === 0) {
-      warnings.push(`No se detectaron datos de ${label}`);
-    }
-  }
-  return warnings;
-}
-
 export async function POST(request: Request) {
-  let body: ParseRequest;
+  let body: TailorRequest;
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Cuerpo de la solicitud inválido.' }, { status: 400 });
   }
 
-  const { text, provider, apiKey, model, baseUrl } = body;
+  const { jobOffer, cvData, provider, apiKey, model, baseUrl } = body;
 
-  if (!text?.trim()) {
-    return NextResponse.json({ error: 'Texto vacío.' }, { status: 400 });
+  if (!jobOffer?.trim()) {
+    return NextResponse.json({ error: 'La oferta de trabajo está vacía.' }, { status: 400 });
   }
   if (!provider || !model) {
     return NextResponse.json({ error: 'Parámetros faltantes.' }, { status: 400 });
@@ -165,11 +125,11 @@ export async function POST(request: Request) {
   if (provider !== 'local' && !apiKey) {
     return NextResponse.json({ error: 'API key requerida.' }, { status: 400 });
   }
-  if (provider !== 'openai' && provider !== 'anthropic' && provider !== 'gemini' && provider !== 'local') {
-    return NextResponse.json({ error: 'Proveedor no soportado.' }, { status: 400 });
-  }
 
-  const { systemPrompt, userPrompt } = buildCVExtractionPrompt(text);
+  const hasCv = cvData && cvData.basics && cvData.basics.name?.trim();
+  const { systemPrompt, userPrompt } = hasCv
+    ? buildCVTailorPrompt(cvData, jobOffer)
+    : buildCVGenerateFromOfferPrompt(jobOffer);
 
   let rawContent: string;
   try {
@@ -185,17 +145,17 @@ export async function POST(request: Request) {
     );
   }
 
-  console.log('====== RAW CONTENT DESDE EL MODELO (PARSE CV) ======');
+  console.log('====== RAW CONTENT DESDE EL MODELO (TAILOR CV) ======');
   console.log(rawContent);
-  console.log('====================================================');
+  console.log('=====================================================');
 
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(rawContent);
   } catch (parseError) {
-    console.error("JSON Parse Error:", parseError, "Raw content:", rawContent);
+    console.error('JSON Parse Error:', parseError, 'Raw content:', rawContent);
     return NextResponse.json(
-      { error: 'No se pudieron extraer datos estructurados de tu CV. Intenta con un PDF con formato más convencional.' },
+      { error: 'La IA no devolvió un formato válido. Intenta de nuevo.' },
       { status: 422 },
     );
   }
@@ -205,40 +165,47 @@ export async function POST(request: Request) {
   const result = CVDataSchema.safeParse(withIds);
 
   if (!result.success) {
-    // Tolerant: merge with safe defaults and try again
     const base = CVDataSchema.safeParse({ basics: {} });
     if (!base.success) {
       return NextResponse.json(
-        { error: 'No se pudieron procesar los datos extraídos.' },
+        { error: 'No se pudieron procesar los datos generados.' },
         { status: 422 },
       );
     }
 
     const tolerantResult = CVDataSchema.safeParse({ ...base.data, ...withIds });
     if (tolerantResult.success) {
-      const warnings = buildWarnings(tolerantResult.data);
-      warnings.push('Algunos datos pueden no haberse extraído correctamente. Revisa y completa manualmente.');
+      const warnings: string[] = [];
+      if (!hasCv) {
+        warnings.push('Se generó un CV de ejemplo. Completa tus datos personales y ajusta el contenido.');
+      } else {
+        warnings.push('Algunos datos pueden no haberse adaptado correctamente. Revisa y ajusta manualmente.');
+      }
       return NextResponse.json({
         data: tolerantResult.data,
-        sections: buildSections(tolerantResult.data),
+        mode: hasCv ? 'tailored' : 'generated',
         warnings,
       });
     }
 
-    console.error("Strict parse error:", result.error);
-    console.error("Tolerant parse error:", tolerantResult.error);
-    console.error("Raw withIds:", JSON.stringify(withIds, null, 2));
+    console.error('Strict parse error:', result.error);
+    console.error('Tolerant parse error:', tolerantResult.error);
+    console.error('Raw withIds:', JSON.stringify(withIds, null, 2));
 
     return NextResponse.json(
-      { error: 'No se pudieron extraer datos estructurados de tu CV.' },
+      { error: 'No se pudieron procesar los datos generados por la IA.' },
       { status: 422 },
     );
   }
 
-  const warnings = buildWarnings(result.data);
+  const warnings: string[] = [];
+  if (!hasCv) {
+    warnings.push('Se generó un CV de ejemplo. Completa tus datos personales y ajusta el contenido.');
+  }
+
   return NextResponse.json({
     data: result.data,
-    sections: buildSections(result.data),
+    mode: hasCv ? 'tailored' : 'generated',
     warnings,
   });
 }

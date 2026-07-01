@@ -1,21 +1,19 @@
 'use client';
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import { useCVContext } from '@/providers/cv-provider';
 import { hasExistingData } from '@/lib/storage';
 import { loadAIConfig, hasAIConfig } from '@/lib/ai-config';
-import { extractTextFromPdf } from '@/lib/pdf-extractor';
 import type { CVData, SectionKey } from '@/lib/schemas/cv';
 
-const MAX_PDF_SIZE = 5 * 1024 * 1024; // 5 MB
+const LONG_OFFER_THRESHOLD = 10_000;
 
-type PdfImportStep =
+type TailorStep =
   | 'idle'
   | 'check-key'
-  | 'extracting'
-  | 'parsing'
+  | 'processing'
   | 'preview'
   | 'confirm-replace'
   | 'success'
@@ -32,31 +30,31 @@ const SECTION_LABELS: Record<SectionKey, string> = {
   publications: 'Publicaciones',
 };
 
-interface ParseResult {
+interface TailorResult {
   data: CVData;
-  sections: Record<string, number | boolean>;
+  mode: 'tailored' | 'generated';
   warnings: string[];
 }
 
-interface PdfImportDialogProps {
+interface TailorDialogProps {
   open: boolean;
   onClose: () => void;
   onOpenSettings: () => void;
 }
 
-export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDialogProps) {
-  const { replaceAll } = useCVContext();
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export function TailorDialog({ open, onClose, onOpenSettings }: TailorDialogProps) {
+  const { data: currentCVData, replaceAll } = useCVContext();
 
-  const [step, setStep] = useState<PdfImportStep>('idle');
+  const [step, setStep] = useState<TailorStep>('idle');
+  const [jobOffer, setJobOffer] = useState('');
   const [error, setError] = useState('');
-  const [result, setResult] = useState<ParseResult | null>(null);
+  const [result, setResult] = useState<TailorResult | null>(null);
 
   const reset = useCallback(() => {
     setStep('idle');
+    setJobOffer('');
     setError('');
     setResult(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   }, []);
 
   const handleClose = useCallback(() => {
@@ -64,30 +62,32 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
     onClose();
   }, [reset, onClose]);
 
-  const processFile = useCallback(async (file: File) => {
+  const hasCVLoaded = Boolean(currentCVData.basics.name?.trim());
+  const isLongOffer = jobOffer.length > LONG_OFFER_THRESHOLD;
+
+  const handleSubmit = useCallback(async () => {
+    if (!jobOffer.trim()) return;
+
+    if (!hasAIConfig()) {
+      setStep('check-key');
+      return;
+    }
+
     const config = loadAIConfig();
     if (!config) {
       setStep('check-key');
       return;
     }
 
-    setStep('extracting');
-    let text: string;
-    try {
-      text = await extractTextFromPdf(file);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al extraer texto del PDF.');
-      setStep('error');
-      return;
-    }
+    setStep('processing');
 
-    setStep('parsing');
     try {
-      const res = await fetch('/api/parse-cv', {
+      const res = await fetch('/api/tailor-cv', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          text,
+          jobOffer: jobOffer.trim(),
+          cvData: hasCVLoaded ? currentCVData : undefined,
           provider: config.provider,
           apiKey: config.apiKey,
           model: config.model,
@@ -97,43 +97,19 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: 'Error desconocido.' }));
-        setError(data.error ?? 'Error al procesar el CV.');
+        setError(data.error ?? 'Error al adaptar el CV.');
         setStep('error');
         return;
       }
 
-      const data: ParseResult = await res.json();
+      const data: TailorResult = await res.json();
       setResult(data);
       setStep('preview');
     } catch {
       setError('No se pudo conectar con el servicio de IA. Verifica tu conexión a internet e intenta de nuevo.');
       setStep('error');
     }
-  }, []);
-
-  const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setError('Solo se aceptan archivos en formato PDF (.pdf).');
-      setStep('error');
-      return;
-    }
-
-    if (file.size > MAX_PDF_SIZE) {
-      setError('El archivo es demasiado grande (máximo 5 MB). Intenta con un PDF más liviano.');
-      setStep('error');
-      return;
-    }
-
-    if (!hasAIConfig()) {
-      setStep('check-key');
-      return;
-    }
-
-    await processFile(file);
-  }, [processFile]);
+  }, [jobOffer, hasCVLoaded, currentCVData]);
 
   const handleImport = useCallback(() => {
     if (!result) return;
@@ -156,7 +132,7 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
       <Modal open={open} onClose={handleClose} title="API key requerida">
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            Para extraer datos de tu PDF necesitas configurar una API key de un proveedor de IA.
+            Para adaptar tu CV necesitas configurar una API key de un proveedor de IA.
           </p>
           <Button
             variant="primary"
@@ -170,29 +146,19 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
     );
   }
 
-  if (step === 'extracting') {
+  if (step === 'processing') {
     return (
-      <Modal open={open} onClose={handleClose} title="Importar desde PDF">
+      <Modal open={open} onClose={handleClose} title="Adaptar a oferta">
         <div className="flex flex-col items-center gap-3 py-4">
           <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
           </svg>
-          <p className="text-sm text-gray-600">Extrayendo texto del PDF...</p>
-        </div>
-      </Modal>
-    );
-  }
-
-  if (step === 'parsing') {
-    return (
-      <Modal open={open} onClose={handleClose} title="Importar desde PDF">
-        <div className="flex flex-col items-center gap-3 py-4">
-          <svg className="animate-spin h-8 w-8 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-          <p className="text-sm text-gray-600">Analizando tu CV... Esto puede tardar unos segundos.</p>
+          <p className="text-sm text-gray-600">
+            {hasCVLoaded
+              ? 'Adaptando tu CV a la oferta... Esto puede tardar unos segundos.'
+              : 'Generando un CV de ejemplo para la oferta... Esto puede tardar unos segundos.'}
+          </p>
         </div>
       </Modal>
     );
@@ -204,12 +170,22 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
         open={open}
         onClose={handleClose}
         onConfirm={handleImport}
-        title="Datos extraídos del PDF"
-        confirmLabel="Cargar datos"
+        title={result.mode === 'tailored' ? 'CV adaptado a la oferta' : 'CV generado desde la oferta'}
+        confirmLabel="Aplicar cambios"
       >
         <div className="space-y-2">
+          {result.mode === 'generated' && (
+            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 mb-3">
+              <p className="text-sm text-blue-800">
+                Se generó un CV de ejemplo. Deberás completar tus datos personales y ajustar el contenido a tu experiencia real.
+              </p>
+            </div>
+          )}
           {result.data.basics.name && (
             <p><strong>Nombre:</strong> {result.data.basics.name}</p>
+          )}
+          {result.data.basics.label && (
+            <p><strong>Título:</strong> {result.data.basics.label}</p>
           )}
           {(Object.keys(SECTION_LABELS) as SectionKey[]).map((key) => {
             const count = result.data[key].length;
@@ -242,7 +218,7 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
         variant="danger"
       >
         <p>
-          Ya tienes datos en el editor. Importar estos datos reemplazará <strong>todos</strong> los
+          Ya tienes datos en el editor. Aplicar estos cambios reemplazará <strong>todos</strong> los
           datos actuales. Esta acción no se puede deshacer.
         </p>
       </Modal>
@@ -251,8 +227,12 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
 
   if (step === 'success') {
     return (
-      <Modal open={open} onClose={handleClose} title="Importación exitosa" cancelLabel="Cerrar">
-        <p>Datos extraídos correctamente. Revisa cada sección para verificar la información.</p>
+      <Modal open={open} onClose={handleClose} title="CV actualizado" cancelLabel="Cerrar">
+        <p>
+          {result?.mode === 'tailored'
+            ? 'Tu CV ha sido adaptado exitosamente a la oferta. Revisa cada sección para verificar los cambios.'
+            : 'Se generó un CV de ejemplo basado en la oferta. Completa tus datos personales y ajusta el contenido.'}
+        </p>
       </Modal>
     );
   }
@@ -263,7 +243,7 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
         open={open}
         onClose={handleClose}
         onConfirm={reset}
-        title="Error al importar"
+        title="Error"
         confirmLabel="Intentar de nuevo"
         cancelLabel="Cancelar"
       >
@@ -274,24 +254,43 @@ export function PdfImportDialog({ open, onClose, onOpenSettings }: PdfImportDial
 
   // idle
   return (
-    <Modal open={open} onClose={handleClose} title="Importar desde PDF">
+    <Modal open={open} onClose={handleClose} title="Adaptar CV a oferta de trabajo">
       <div className="space-y-4">
         <p className="text-sm text-gray-500">
-          Selecciona un archivo PDF de tu CV. Se usará IA para extraer los datos automáticamente. Máximo 5 MB.
+          {hasCVLoaded
+            ? 'Pega la descripción de la oferta de trabajo y la IA adaptará tu CV para que sea más relevante.'
+            : 'No tienes un CV cargado. Pega la oferta y se generará un CV de ejemplo que podrás completar con tus datos.'}
         </p>
-        <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
-          <svg className="w-8 h-8 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-          </svg>
-          <span className="text-sm text-gray-600">Seleccionar archivo .pdf</span>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf"
-            className="hidden"
-            onChange={handleFileSelect}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Oferta de trabajo
+          </label>
+          <textarea
+            value={jobOffer}
+            onChange={(e) => setJobOffer(e.target.value)}
+            placeholder="Pega aquí el título, descripción, requisitos y responsabilidades de la oferta..."
+            rows={8}
+            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none resize-y"
           />
-        </label>
+          {isLongOffer && (
+            <p className="text-xs text-amber-600 mt-1">
+              ⚠️ La oferta es muy larga ({jobOffer.length.toLocaleString()} caracteres). Modelos con ventana de contexto pequeña podrían fallar.
+            </p>
+          )}
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" size="sm" onClick={handleClose}>
+            Cancelar
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSubmit}
+            disabled={!jobOffer.trim()}
+          >
+            {hasCVLoaded ? 'Adaptar CV' : 'Generar CV'}
+          </Button>
+        </div>
       </div>
     </Modal>
   );

@@ -12,6 +12,7 @@
     "isomorphic-dompurify": "^3.13.0",
     "nanoid": "^5.1.11",
     "next": "16.2.6",
+    "openai": "^6.45.0",
     "pdfjs-dist": "^4.8.69",
     "puppeteer": "^25.0.4",
     "react": "19.2.4",

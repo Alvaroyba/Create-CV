@@ -1,47 +1,41 @@
 import { NextResponse } from 'next/server';
+import OpenAI from 'openai';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
-  let body: { provider: string; apiKey: string };
+  let body: { provider: string; apiKey: string; baseUrl?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ valid: false, error: 'Solicitud inválida.' }, { status: 400 });
   }
 
-  const { provider, apiKey } = body;
+  const { provider, apiKey, baseUrl } = body;
 
-  if (!provider || !apiKey) {
-    return NextResponse.json({ valid: false, error: 'Parámetros faltantes.' }, { status: 400 });
+  if (!provider) {
+    return NextResponse.json({ valid: false, error: 'Proveedor faltante.' }, { status: 400 });
+  }
+  if (provider !== 'local' && !apiKey) {
+    return NextResponse.json({ valid: false, error: 'API key faltante.' }, { status: 400 });
   }
 
   try {
-    if (provider === 'ollama') {
-      const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-      let res: Response;
+    if (provider === 'local' || provider === 'openai') {
       try {
-        res = await fetch(`${baseUrl}/api/tags`);
-      } catch {
-        return NextResponse.json({ valid: false, error: 'No se pudo conectar con Ollama. Verifica que esté ejecutándose (ollama serve).' });
+        const client = new OpenAI({
+          apiKey: apiKey || 'dummy-key',
+          baseURL: provider === 'local' ? (baseUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434/v1') : undefined,
+        });
+        const response = await client.models.list();
+        const models = response.data.map((m: any) => m.id);
+        return NextResponse.json({ valid: true, models });
+      } catch (err: any) {
+        if (err.status === 401) {
+          return NextResponse.json({ valid: false, error: 'API key inválida.' });
+        }
+        return NextResponse.json({ valid: false, error: err?.message || 'No se pudo conectar con el proveedor.' });
       }
-      if (res.ok) {
-        return NextResponse.json({ valid: true });
-      }
-      return NextResponse.json({ valid: false, error: 'Ollama no respondió correctamente.' });
-    }
-
-    if (provider === 'openai') {
-      const res = await fetch('https://api.openai.com/v1/models', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
-      if (res.ok) {
-        return NextResponse.json({ valid: true });
-      }
-      if (res.status === 401) {
-        return NextResponse.json({ valid: false, error: 'API key inválida.' });
-      }
-      return NextResponse.json({ valid: false, error: `Error del proveedor (${res.status}).` });
     }
 
     if (provider === 'anthropic') {
@@ -68,16 +62,20 @@ export async function POST(request: Request) {
     }
 
     if (provider === 'gemini') {
-      const res = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`,
-      );
-      if (res.ok) {
-        return NextResponse.json({ valid: true });
+      try {
+        const client = new OpenAI({
+          apiKey: apiKey,
+          baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+        });
+        const response = await client.models.list();
+        const models = response.data.map((m: any) => m.id);
+        return NextResponse.json({ valid: true, models });
+      } catch (err: any) {
+        if (err.status === 400 || err.status === 401 || err.status === 403) {
+          return NextResponse.json({ valid: false, error: 'API key inválida.' });
+        }
+        return NextResponse.json({ valid: false, error: err?.message || 'Error del proveedor.' });
       }
-      if (res.status === 400 || res.status === 401 || res.status === 403) {
-        return NextResponse.json({ valid: false, error: 'API key inválida.' });
-      }
-      return NextResponse.json({ valid: false, error: `Error del proveedor (${res.status}).` });
     }
 
     return NextResponse.json({ valid: false, error: 'Proveedor no soportado.' }, { status: 400 });

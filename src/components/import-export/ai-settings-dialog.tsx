@@ -19,12 +19,14 @@ interface AISettingsDialogProps {
 }
 
 export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
-  const [provider, setProvider] = useState<AIProvider>('ollama');
-  const [model, setModel] = useState('llama3');
+  const [provider, setProvider] = useState<AIProvider>('local');
+  const [model, setModel] = useState('llama3.1');
   const [apiKey, setApiKey] = useState('');
+  const [baseUrl, setBaseUrl] = useState('');
   const [showKey, setShowKey] = useState(false);
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const [verifyError, setVerifyError] = useState('');
+  const [fetchedModels, setFetchedModels] = useState<string[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -33,23 +35,28 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
       setProvider(config.provider);
       setModel(config.model);
       setApiKey(config.apiKey);
+      setBaseUrl(config.baseUrl || '');
       setVerifyState('idle');
     } else {
-      setProvider('ollama');
-      setModel('llama3');
+      setProvider('local');
+      setModel('llama3.1');
       setApiKey('');
+      setBaseUrl('');
       setVerifyState('idle');
+      setFetchedModels([]);
     }
     setVerifyError('');
   }, [open]);
 
   const handleProviderChange = useCallback((newProvider: AIProvider) => {
     setProvider(newProvider);
-    setModel(AI_PROVIDERS[newProvider].models[0].id);
+    setModel(AI_PROVIDERS[newProvider].models[0]?.id || '');
     setVerifyState('idle');
+    setFetchedModels([]);
   }, []);
 
-  const isLocal = provider === 'ollama';
+  const isLocal = provider === 'local';
+  const isDynamicModels = AI_PROVIDERS[provider].models.length === 0;
 
   const handleVerify = useCallback(async () => {
     if (!isLocal && !apiKey.trim()) return;
@@ -60,11 +67,17 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
       const res = await fetch('/api/verify-key', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, apiKey: apiKey.trim() }),
+        body: JSON.stringify({ provider, apiKey: apiKey.trim(), baseUrl: baseUrl.trim() }),
       });
       const data = await res.json();
       if (data.valid) {
         setVerifyState('valid');
+        if (data.models && Array.isArray(data.models)) {
+          setFetchedModels(data.models);
+          if (data.models.length > 0 && (!model || !data.models.includes(model))) {
+            setModel(data.models[0]);
+          }
+        }
       } else {
         setVerifyState('invalid');
         setVerifyError(data.error ?? 'Clave inválida.');
@@ -73,21 +86,23 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
       setVerifyState('invalid');
       setVerifyError('No se pudo verificar la clave.');
     }
-  }, [apiKey, provider, isLocal]);
+  }, [apiKey, baseUrl, provider, isLocal, model]);
 
   const handleSave = useCallback(() => {
     const config: AIConfig = {
       provider,
-      apiKey: isLocal ? 'ollama' : apiKey.trim(),
-      model,
+      apiKey: apiKey.trim(),
+      model: model.trim() || 'llama3.1',
+      baseUrl: isLocal ? baseUrl.trim() : undefined,
     };
     saveAIConfig(config);
     onClose();
-  }, [provider, apiKey, model, onClose, isLocal]);
+  }, [provider, apiKey, model, baseUrl, onClose, isLocal]);
 
   const handleClear = useCallback(() => {
     clearAIConfig();
     setApiKey('');
+    setBaseUrl('');
     setVerifyState('idle');
     setVerifyError('');
   }, []);
@@ -108,51 +123,46 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
           </select>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
-          <select
-            value={model}
-            onChange={(e) => setModel(e.target.value)}
-            className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-          >
-            {AI_PROVIDERS[provider].models.map((m) => (
-              <option key={m.id} value={m.id}>{m.label}</option>
-            ))}
-          </select>
-        </div>
 
-        {!isLocal && (
+
+        {isLocal && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-            <div className="relative">
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setVerifyState('idle'); }}
-                placeholder="sk-..."
-                className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-              />
-              <button
-                type="button"
-                onClick={() => setShowKey(!showKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                aria-label={showKey ? 'Ocultar clave' : 'Mostrar clave'}
-              >
-                {showKey ? (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-                ) : (
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                )}
-              </button>
-            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Base URL (Endpoint)</label>
+            <input
+              type="text"
+              value={baseUrl}
+              onChange={(e) => { setBaseUrl(e.target.value); setVerifyState('idle'); }}
+              placeholder="Ej. http://localhost:11434/v1"
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+            <p className="text-xs text-gray-500 mt-1">Por defecto intenta Ollama en http://localhost:11434/v1</p>
           </div>
         )}
 
-        {isLocal && (
-          <p className="text-sm text-gray-500 bg-gray-50 rounded-lg p-3">
-            Ollama se ejecuta localmente, no necesita API key. Asegúrate de que Ollama esté corriendo (<code className="text-xs bg-gray-200 px-1 rounded">ollama serve</code>).
-          </p>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">API Key {isLocal && '(Opcional para local)'}</label>
+          <div className="relative">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={apiKey}
+              onChange={(e) => { setApiKey(e.target.value); setVerifyState('idle'); }}
+              placeholder={isLocal ? "sk-..." : "sk-..."}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => setShowKey(!showKey)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              aria-label={showKey ? 'Ocultar clave' : 'Mostrar clave'}
+            >
+              {showKey ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              )}
+            </button>
+          </div>
+        </div>
 
         <div className="flex items-center gap-2">
           <Button
@@ -165,10 +175,44 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
             {isLocal ? 'Verificar conexión' : 'Verificar clave'}
           </Button>
           {verifyState === 'valid' && (
-            <span className="text-sm text-green-600 font-medium">Clave válida</span>
+            <span className="text-sm text-green-600 font-medium">Conexión válida</span>
           )}
           {verifyState === 'invalid' && (
             <span className="text-sm text-red-600">{verifyError}</span>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Modelo</label>
+          {isDynamicModels ? (
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              {fetchedModels.length === 0 && !model && (
+                <option value="" disabled>Verifica la conexión primero...</option>
+              )}
+              {model && !fetchedModels.includes(model) && (
+                <option value={model}>{model}</option>
+              )}
+              {fetchedModels.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+          ) : (
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+            >
+              {AI_PROVIDERS[provider].models.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          )}
+          {isDynamicModels && fetchedModels.length === 0 && (
+            <p className="text-xs text-gray-500 mt-1">Haz clic en Verificar conexión para cargar los modelos.</p>
           )}
         </div>
 
