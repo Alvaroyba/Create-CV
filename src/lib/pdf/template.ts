@@ -8,6 +8,7 @@ export interface TemplateOptions {
   margins?: number;
   lineHeight?: number;
   fontSize?: number;
+  language?: 'es' | 'en';
 }
 
 const SECTION_ORDER = [
@@ -21,7 +22,7 @@ const SECTION_ORDER = [
   'publications',
 ] as const;
 
-const SECTION_TITLES: Record<string, string> = {
+const SECTION_TITLES_EN: Record<string, string> = {
   work: 'Professional Experience',
   education: 'Education',
   skills: 'Additional Skills',
@@ -31,6 +32,21 @@ const SECTION_TITLES: Record<string, string> = {
   volunteer: 'Volunteer',
   publications: 'Publications',
 };
+
+const SECTION_TITLES_ES: Record<string, string> = {
+  work: 'Experiencia Profesional',
+  education: 'Educación',
+  skills: 'Habilidades Adicionales',
+  languages: 'Idiomas',
+  projects: 'Proyectos',
+  certifications: 'Certificaciones',
+  volunteer: 'Voluntariado',
+  publications: 'Publicaciones',
+};
+
+function getSectionTitles(language: 'es' | 'en'): Record<string, string> {
+  return language === 'es' ? SECTION_TITLES_ES : SECTION_TITLES_EN;
+}
 
 function escapeHtml(str: string): string {
   return str
@@ -165,28 +181,24 @@ function renderPublicationsSection(entries: CVData['publications']): string {
     .join('');
 }
 
-function renderSection(key: string, data: CVData): string {
-  const entries = data[key as keyof CVData];
-  if (!Array.isArray(entries) || entries.length === 0) return '';
-
-  const renderers: Record<string, (items: never[]) => string> = {
-    work: renderWorkSection as (items: never[]) => string,
-    education: renderEducationSection as (items: never[]) => string,
-    skills: renderSkillsSection as (items: never[]) => string,
-    languages: renderLanguagesSection as (items: never[]) => string,
-    projects: renderProjectsSection as (items: never[]) => string,
-    certifications: renderCertificationsSection as (items: never[]) => string,
-    volunteer: renderVolunteerSection as (items: never[]) => string,
-    publications: renderPublicationsSection as (items: never[]) => string,
-  };
-
-  const renderer = renderers[key];
-  if (!renderer) return '';
+function renderSection(sectionId: string, data: CVData, sectionTitles: Record<string, string>): string {
+  const entries = data[sectionId as keyof CVData];
+  if (!entries || (Array.isArray(entries) && entries.length === 0)) return '';
+  const render = {
+    work: renderWorkSection,
+    education: renderEducationSection,
+    skills: renderSkillsSection,
+    languages: renderLanguagesSection,
+    projects: renderProjectsSection,
+    certifications: renderCertificationsSection,
+    volunteer: renderVolunteerSection,
+    publications: renderPublicationsSection,
+  }[sectionId] as (e: any) => string;
 
   return `
     <div class="section">
-      <h2>${SECTION_TITLES[key]}</h2>
-      ${renderer(entries as never[])}
+      <h2 class="section-title">${escapeHtml(sectionTitles[sectionId])}</h2>
+      ${render(entries)}
     </div>`;
 }
 
@@ -213,13 +225,13 @@ function renderHeader(basics: CVData['basics']): string {
     ${basics.summary ? `<div class="summary">${markdownToHTML(basics.summary)}</div>` : ''}`;
 }
 
-export function generatePdfHTML(data: CVData, options?: TemplateOptions): string {
-  const sections = SECTION_ORDER.map((key) => renderSection(key, data)).filter(Boolean).join('');
-
-  const pageFormat = options?.pageFormat ?? 'letter';
-  const margins = options?.margins ?? 15;
-  const lineHeight = options?.lineHeight ?? 1.5;
-  const fontSize = options?.fontSize ?? 11;
+export function generatePdfHTML(
+  data: CVData,
+  options: TemplateOptions = { pageFormat: 'letter', language: 'es' },
+): string {
+  const { pageFormat, margins = 15, lineHeight = 1.5, fontSize = 11, language = 'es' } = options;
+  const sectionTitles = getSectionTitles(language);
+  const sections = SECTION_ORDER.map((key) => renderSection(key, data, sectionTitles)).filter(Boolean).join('');
 
   const pageSize = pageFormat === 'letter' ? '215.9mm 279.4mm' : 'A4';
 

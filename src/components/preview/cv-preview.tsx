@@ -14,9 +14,10 @@ interface CVPreviewProps {
   data: CVData;
   pageFormat?: PageFormat;
   singlePage?: boolean;
+  language?: 'es' | 'en';
 }
 
-export function CVPreview({ data, pageFormat = 'letter', singlePage = false }: CVPreviewProps) {
+export function CVPreview({ data, pageFormat = 'letter', singlePage = false, language = 'es' }: CVPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [overflows, setOverflows] = useState(false);
@@ -63,6 +64,7 @@ export function CVPreview({ data, pageFormat = 'letter', singlePage = false }: C
         margins,
         lineHeight,
         fontSize,
+        language,
       });
       const doc = iframe.contentDocument;
       if (!doc) return false;
@@ -111,7 +113,7 @@ export function CVPreview({ data, pageFormat = 'letter', singlePage = false }: C
         }
       }, 50);
     }
-  }, [filteredData, pageFormat, singlePage]);
+  }, [filteredData, pageFormat, singlePage, language]);
 
   const dims = PAGE_DIMENSIONS_PX[pageFormat];
   const actualHeight = scale * dims.height;

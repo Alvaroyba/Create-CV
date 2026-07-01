@@ -24,10 +24,11 @@ import type { SectionKey, SectionEntry } from '@/lib/schemas/cv';
 interface PdfPreferences {
   pageSize: PageFormat;
   singlePage: boolean;
+  language: 'es' | 'en';
 }
 
 function loadPreferences(): PdfPreferences {
-  if (typeof window === 'undefined') return { pageSize: 'letter', singlePage: false };
+  if (typeof window === 'undefined') return { pageSize: 'letter', singlePage: false, language: 'es' };
   try {
     const raw = localStorage.getItem(PREFERENCES_KEY);
     if (raw) {
@@ -35,10 +36,11 @@ function loadPreferences(): PdfPreferences {
       return {
         pageSize: parsed.pageSize === 'A4' ? 'A4' : 'letter',
         singlePage: Boolean(parsed.singlePage),
+        language: parsed.language === 'en' ? 'en' : 'es',
       };
     }
   } catch { /* ignore */ }
-  return { pageSize: 'letter', singlePage: false };
+  return { pageSize: 'letter', singlePage: false, language: 'es' };
 }
 
 function savePreferences(prefs: PdfPreferences): void {
@@ -58,24 +60,31 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
   const [showTailor, setShowTailor] = useState(false);
   const [pageSize, setPageSize] = useState<PageFormat>('letter');
   const [singlePage, setSinglePage] = useState(false);
+  const [language, setLanguage] = useState<'es' | 'en'>('es');
 
   useEffect(() => {
     const prefs = loadPreferences();
     setPageSize(prefs.pageSize);
     setSinglePage(prefs.singlePage);
+    setLanguage(prefs.language);
   }, []);
 
   const updatePageSize = (value: PageFormat) => {
     setPageSize(value);
-    savePreferences({ pageSize: value, singlePage });
+    savePreferences({ pageSize: value, singlePage, language });
   };
 
   const updateSinglePage = (value: boolean) => {
     setSinglePage(value);
-    savePreferences({ pageSize, singlePage: value });
+    savePreferences({ pageSize, singlePage: value, language });
   };
 
-  const { download, isLoading: isPdfLoading, error: pdfError } = usePdfDownload({ pageSize, singlePage });
+  const updateLanguage = (value: 'es' | 'en') => {
+    setLanguage(value);
+    savePreferences({ pageSize, singlePage, language: value });
+  };
+
+  const { download, isLoading: isPdfLoading, error: pdfError } = usePdfDownload({ pageSize, singlePage, language });
 
   const tabs: SectionTabItem[] = [
     { key: 'basics', label: 'Datos personales' },
@@ -97,16 +106,23 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
           </div>
           <div className="flex items-center gap-2">
             <select
+              value={language}
+              onChange={(e) => updateLanguage(e.target.value as 'es' | 'en')}
+              className="text-sm border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500 py-1.5"
+              title="Idioma del CV"
+            >
+              <option value="es">Español</option>
+              <option value="en">English</option>
+            </select>
+            <div className="w-px h-6 bg-gray-200 mx-1" />
+            <select
               value={pageSize}
               onChange={(e) => updatePageSize(e.target.value as PageFormat)}
-              className="text-sm border border-gray-300 rounded-md px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              aria-label="Formato de página"
+              className="text-sm border-gray-300 rounded-md focus:border-blue-500 focus:ring-blue-500 py-1.5"
+              title="Formato de página"
             >
-              {(Object.keys(PAGE_FORMATS) as PageFormat[]).map((key) => (
-                <option key={key} value={key}>
-                  {PAGE_FORMATS[key].label}
-                </option>
-              ))}
+              <option value="letter">Carta (Letter)</option>
+              <option value="A4">A4</option>
             </select>
             <label className="flex items-center gap-1.5 text-sm text-gray-700 cursor-pointer">
               <input
@@ -177,7 +193,7 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
 
         {/* Preview panel — desktop only */}
         <div className="hidden lg:flex lg:w-[45%] border-l border-gray-200 bg-gray-100 p-6 overflow-y-auto items-start justify-center">
-          <CVPreview data={data} pageFormat={pageSize} singlePage={singlePage} />
+          <CVPreview data={data} pageFormat={pageSize} singlePage={singlePage} language={language} />
         </div>
       </div>
 

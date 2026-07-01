@@ -7,6 +7,7 @@ import type { PageFormat } from '@/lib/constants';
 interface UsePdfDownloadOptions {
   pageSize?: PageFormat;
   singlePage?: boolean;
+  language?: 'es' | 'en';
 }
 
 interface UsePdfDownloadReturn {
@@ -55,6 +56,7 @@ export function usePdfDownload(pdfOptions?: UsePdfDownloadOptions): UsePdfDownlo
           options: {
             pageSize: pdfOptions?.pageSize ?? 'letter',
             singlePage: pdfOptions?.singlePage ?? false,
+            language: pdfOptions?.language ?? 'es',
           },
         }),
       });
@@ -87,7 +89,7 @@ export function usePdfDownload(pdfOptions?: UsePdfDownloadOptions): UsePdfDownlo
     } finally {
       setIsLoading(false);
     }
-  }, [data, validate, isLoading, pdfOptions?.pageSize, pdfOptions?.singlePage]);
+  }, [data, validate, isLoading, pdfOptions?.pageSize, pdfOptions?.singlePage, pdfOptions?.language]);
 
   return { download, isLoading, error };
 }
