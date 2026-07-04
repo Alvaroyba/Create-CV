@@ -1,5 +1,5 @@
 import puppeteerCore from 'puppeteer-core';
-import chromium from '@sparticuz/chromium';
+import chromium from '@sparticuz/chromium-min';
 import type { Page } from 'puppeteer-core';
 import type { PageFormat } from '@/lib/constants';
 import type { CVData } from '@/lib/schemas/cv';
@@ -124,10 +124,12 @@ export async function renderPdf(
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
     } else {
-      // Usar puppeteer-core con @sparticuz/chromium en producción (Vercel)
+      // Usar puppeteer-core con @sparticuz/chromium-min en producción (Vercel)
       browser = await puppeteerCore.launch({
         args: chromium.args,
-        executablePath: await chromium.executablePath(),
+        executablePath: await chromium.executablePath(
+          'https://github.com/Sparticuz/chromium/releases/download/v131.0.1/chromium-v131.0.1-pack.tar'
+        ),
         headless: true,
       });
     }
