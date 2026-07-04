@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { MAX_ENTRIES, MAX_FIELD_LENGTHS } from '@/lib/constants';
 
-const dateField = z.string().regex(/^\d{4}(-\d{2})?$/).optional();
+const dateField = z.string().max(30).optional();
 const urlField = z.preprocess((val) => {
   if (typeof val === 'string' && val.trim() !== '') {
     const trimmed = val.trim();

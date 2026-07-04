@@ -116,8 +116,9 @@ export async function renderPdf(
     const isLocal = process.env.NODE_ENV === 'development';
 
     if (isLocal) {
-      // Usar puppeteer normal en local (necesita estar instalado como dependencia)
-      const puppeteer = require('puppeteer');
+      // Usar puppeteer normal en local (oculto al analizador estático de Vercel)
+      const puppeteerModule = 'puppeteer';
+      const puppeteer = require(puppeteerModule);
       browser = await puppeteer.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],

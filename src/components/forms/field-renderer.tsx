@@ -135,9 +135,7 @@ export function FieldRenderer({ field, value, onChange, error }: FieldRendererPr
     case 'date': {
       const strValue = (value as string) ?? '';
       let dateError = error;
-      if (strValue && !/^\d{4}(-\d{2})?$/.test(strValue)) {
-        dateError = 'Formato de fecha no válido. Usa YYYY-MM (ej. 2024-03) o YYYY.';
-      } else if (strValue && field.name === 'startDate' && isDateInFuture(strValue)) {
+      if (strValue && field.name === 'startDate' && isDateInFuture(strValue)) {
         dateError = 'La fecha de inicio no puede ser posterior a hoy.';
       }
       return (
