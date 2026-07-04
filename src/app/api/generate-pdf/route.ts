@@ -114,7 +114,8 @@ export async function POST(request: NextRequest) {
       return errorResponse('TIMEOUT_ERROR', error.message, 504);
     }
     console.error('PDF Generation Error:', error);
-    return errorResponse('RENDER_ERROR', 'Ocurrió un error inesperado al generar el PDF.', 500);
+    const msg = error instanceof Error ? error.message : 'Error desconocido';
+    return errorResponse('RENDER_ERROR', `Ocurrió un error inesperado al generar el PDF: ${msg}`, 500);
   }
   } catch (globalError) {
     console.error('Global API Error:', globalError);

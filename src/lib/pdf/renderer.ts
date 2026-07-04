@@ -1,5 +1,4 @@
-import puppeteerCore from 'puppeteer-core';
-import chromium from '@sparticuz/chromium-min';
+
 import type { Page } from 'puppeteer-core';
 import type { PageFormat } from '@/lib/constants';
 import type { CVData } from '@/lib/schemas/cv';
@@ -118,13 +117,19 @@ export async function renderPdf(
     if (isLocal) {
       // Usar puppeteer normal en local (oculto al analizador estático de Vercel)
       const puppeteerModule = 'puppeteer';
-      const puppeteer = require(puppeteerModule);
+      const puppeteer = (await import(puppeteerModule)).default || (await import(puppeteerModule));
       browser = await puppeteer.launch({
         headless: true,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
     } else {
       // Usar puppeteer-core con @sparticuz/chromium-min en producción (Vercel)
+      const puppeteerCoreModule = await import('puppeteer-core');
+      const puppeteerCore = puppeteerCoreModule.default || puppeteerCoreModule;
+      
+      const chromiumModule = await import('@sparticuz/chromium-min');
+      const chromium = chromiumModule.default || chromiumModule;
+      
       browser = await puppeteerCore.launch({
         args: chromium.args,
         executablePath: await chromium.executablePath(
