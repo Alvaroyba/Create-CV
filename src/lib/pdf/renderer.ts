@@ -1,5 +1,6 @@
-import puppeteer from 'puppeteer';
-import type { Page } from 'puppeteer';
+import puppeteerCore from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
+import type { Page } from 'puppeteer-core';
 import type { PageFormat } from '@/lib/constants';
 import type { CVData } from '@/lib/schemas/cv';
 import { generatePdfHTML, type TemplateOptions } from './template';
@@ -111,10 +112,24 @@ export async function renderPdf(
   const format: PageFormat = options?.pageFormat ?? 'letter';
 
   const renderPromise = async (): Promise<Buffer> => {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
+    let browser;
+    const isLocal = process.env.NODE_ENV === 'development';
+
+    if (isLocal) {
+      // Usar puppeteer normal en local (necesita estar instalado como dependencia)
+      const puppeteer = require('puppeteer');
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+    } else {
+      // Usar puppeteer-core con @sparticuz/chromium en producción (Vercel)
+      browser = await puppeteerCore.launch({
+        args: chromium.args,
+        executablePath: await chromium.executablePath(),
+        headless: true,
+      });
+    }
 
     try {
       const page = await browser.newPage();

@@ -9,12 +9,14 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
     "isomorphic-dompurify": "^3.13.0",
     "nanoid": "^5.1.11",
     "next": "16.2.6",
     "openai": "^6.45.0",
     "pdfjs-dist": "^4.8.69",
     "puppeteer": "^25.0.4",
+    "puppeteer-core": "^25.3.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.4.3"
