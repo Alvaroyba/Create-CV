@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { MAX_FIELD_LENGTHS } from '@/lib/constants';
 import { generateId } from '@/lib/utils';
 
-export function BasicsForm() {
+export function BasicsForm({ templateId }: { templateId?: string }) {
   const { data, setBasics } = useCVContext();
   const { basics } = data;
 
@@ -28,9 +28,59 @@ export function BasicsForm() {
   const nameError = basics.name.trim() === '' ? 'El nombre completo es obligatorio' : undefined;
   const emailError = basics.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basics.email) ? 'Formato de email inválido' : undefined;
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setBasics({ image: base64String });
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-gray-900">Datos personales</h2>
+
+      {templateId === 'creative' && (
+        <div className="flex items-center gap-4 mb-2">
+          {basics.image ? (
+            <div className="relative w-16 h-16 rounded-full overflow-hidden border border-gray-200 shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={basics.image} alt="Perfil" className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center border border-gray-200 shrink-0 text-gray-400">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </div>
+          )}
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Foto de perfil (opcional)</label>
+            <div className="flex gap-2">
+              <input
+                type="file"
+                accept="image/*"
+                id="photo-upload"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+              <label
+                htmlFor="photo-upload"
+                className="cursor-pointer inline-flex items-center justify-center rounded-lg font-medium transition-colors duration-200 bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 px-3 py-1.5 text-sm"
+              >
+                Subir foto
+              </label>
+              {basics.image && (
+                <Button variant="ghost" size="sm" onClick={() => setBasics({ image: undefined })}>
+                  Quitar
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Input

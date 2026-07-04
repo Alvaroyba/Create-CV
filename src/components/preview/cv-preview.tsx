@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import type { CVData, SectionKey } from '@/lib/schemas/cv';
 import type { PageFormat } from '@/lib/constants';
-import { generatePdfHTML } from '@/lib/pdf/template';
+import { generatePdfHTML } from '@/lib/pdf/templates/generator';
 
 const PAGE_DIMENSIONS_PX = {
   letter: { width: 816, height: 1056 }, // 215.9mm x 279.4mm at 96 DPI
@@ -15,9 +15,10 @@ interface CVPreviewProps {
   pageFormat?: PageFormat;
   singlePage?: boolean;
   language?: 'es' | 'en';
+  templateId?: string;
 }
 
-export function CVPreview({ data, pageFormat = 'letter', singlePage = false, language = 'es' }: CVPreviewProps) {
+export function CVPreview({ data, pageFormat = 'letter', singlePage = false, language = 'es', templateId = 'classic' }: CVPreviewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [overflows, setOverflows] = useState(false);
@@ -60,6 +61,7 @@ export function CVPreview({ data, pageFormat = 'letter', singlePage = false, lan
     // Inject HTML and measure synchronously
     const tryRender = (margins: number, lineHeight: number, fontSize: number): boolean => {
       const html = generatePdfHTML(filteredData, {
+        templateId,
         pageFormat,
         margins,
         lineHeight,
@@ -113,7 +115,7 @@ export function CVPreview({ data, pageFormat = 'letter', singlePage = false, lan
         }
       }, 50);
     }
-  }, [filteredData, pageFormat, singlePage, language]);
+  }, [filteredData, pageFormat, singlePage, language, templateId]);
 
   const dims = PAGE_DIMENSIONS_PX[pageFormat];
   const actualHeight = scale * dims.height;

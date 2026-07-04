@@ -8,6 +8,7 @@ interface UsePdfDownloadOptions {
   pageSize?: PageFormat;
   singlePage?: boolean;
   language?: 'es' | 'en';
+  templateId?: string;
 }
 
 interface UsePdfDownloadReturn {
@@ -54,6 +55,7 @@ export function usePdfDownload(pdfOptions?: UsePdfDownloadOptions): UsePdfDownlo
         body: JSON.stringify({
           cvData: data,
           options: {
+            templateId: pdfOptions?.templateId ?? 'classic',
             pageSize: pdfOptions?.pageSize ?? 'letter',
             singlePage: pdfOptions?.singlePage ?? false,
             language: pdfOptions?.language ?? 'es',
@@ -89,7 +91,7 @@ export function usePdfDownload(pdfOptions?: UsePdfDownloadOptions): UsePdfDownlo
     } finally {
       setIsLoading(false);
     }
-  }, [data, validate, isLoading, pdfOptions?.pageSize, pdfOptions?.singlePage, pdfOptions?.language]);
+  }, [data, validate, isLoading, pdfOptions?.pageSize, pdfOptions?.singlePage, pdfOptions?.language, pdfOptions?.templateId]);
 
   return { download, isLoading, error };
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GeneratePdfRequestSchema } from '@/lib/schemas/api';
-import { generatePdfHTML } from '@/lib/pdf/template';
+import { generatePdfHTML } from '@/lib/pdf/templates/generator';
 import { renderPdf, ContentOverflowError, RenderTimeoutError } from '@/lib/pdf/renderer';
 import { slugifyFilename } from '@/lib/utils';
 import type { CVData, SectionKey } from '@/lib/schemas/cv';
@@ -8,7 +8,7 @@ import type { CVData, SectionKey } from '@/lib/schemas/cv';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const MAX_BODY_SIZE = 1_048_576; // 1 MB
+const MAX_BODY_SIZE = 6 * 1024 * 1024; // 6 MB
 const RATE_LIMIT_MAX = 10;
 const RATE_LIMIT_WINDOW_MS = 3_600_000; // 1 hora
 
@@ -57,66 +57,67 @@ function errorResponse(code: string, message: string, status: number) {
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-  if (!checkRateLimit(ip)) {
-    return errorResponse(
-      'RATE_LIMIT',
-      'Has excedido el límite de generaciones. Intenta de nuevo más tarde.',
-      429,
-    );
-  }
-
-  let body: unknown;
-  try {
-    const text = await request.text();
-    if (text.length > MAX_BODY_SIZE) {
-      return errorResponse('VALIDATION_ERROR', 'El payload excede el tamaño máximo permitido (1 MB).', 400);
+    if (!checkRateLimit(ip)) {
+      return errorResponse(
+        'RATE_LIMIT',
+        'Has excedido el límite de generaciones. Intenta de nuevo más tarde.',
+        429,
+      );
     }
-    body = JSON.parse(text);
-  } catch {
-    return errorResponse('VALIDATION_ERROR', 'El body de la petición no es JSON válido.', 400);
-  }
 
-  const result = GeneratePdfRequestSchema.safeParse(body);
-  if (!result.success) {
-    const issue = result.error.issues[0];
-    const pathStr = issue?.path.join('.') ?? '';
-    const firstError = `${issue?.message ?? 'Datos inválidos'} (Ruta: ${pathStr})`;
-    return errorResponse('VALIDATION_ERROR', firstError, 400);
-  }
-
-  const { cvData, options } = result.data;
-  const filteredData = filterActiveEntries(cvData);
-  const html = generatePdfHTML(filteredData, { pageFormat: options.pageSize });
-
-  try {
-    const pdfBuffer = await renderPdf(html, {
-      singlePage: options.singlePage,
-      pageFormat: options.pageSize,
-      cvData: filteredData,
-    });
-
-    const today = new Date().toISOString().split('T')[0];
-    const filename = `CV_${slugifyFilename(filteredData.basics.name)}_${today}.pdf`;
-
-    return new Response(new Uint8Array(pdfBuffer), {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'Cache-Control': 'no-store',
-      },
-    });
-  } catch (error) {
-    if (error instanceof ContentOverflowError) {
-      return errorResponse('CONTENT_OVERFLOW', error.message, 409);
+    let body: unknown;
+    try {
+      const text = await request.text();
+      if (text.length > MAX_BODY_SIZE) {
+        return errorResponse('VALIDATION_ERROR', 'El payload excede el tamaño máximo permitido (6 MB).', 400);
+      }
+      body = JSON.parse(text);
+    } catch {
+      return errorResponse('VALIDATION_ERROR', 'El body de la petición no es JSON válido.', 400);
     }
-    if (error instanceof RenderTimeoutError) {
-      return errorResponse('TIMEOUT_ERROR', error.message, 504);
+
+    const result = GeneratePdfRequestSchema.safeParse(body);
+    if (!result.success) {
+      const issue = result.error.issues[0];
+      const pathStr = issue?.path.join('.') ?? '';
+      const firstError = `${issue?.message ?? 'Datos inválidos'} (Ruta: ${pathStr})`;
+      return errorResponse('VALIDATION_ERROR', firstError, 400);
     }
-    console.error('PDF Generation Error:', error);
-    const msg = error instanceof Error ? error.message : 'Error desconocido';
-    return errorResponse('RENDER_ERROR', `Ocurrió un error inesperado al generar el PDF: ${msg}`, 500);
-  }
+
+    const { cvData, options } = result.data;
+    const filteredData = filterActiveEntries(cvData);
+    const html = generatePdfHTML(filteredData, { pageFormat: options.pageSize, templateId: options.templateId });
+
+    try {
+      const pdfBuffer = await renderPdf(html, {
+        singlePage: options.singlePage,
+        pageFormat: options.pageSize,
+        cvData: filteredData,
+        templateId: options.templateId,
+      });
+
+      const today = new Date().toISOString().split('T')[0];
+      const filename = `CV_${slugifyFilename(filteredData.basics.name)}_${today}.pdf`;
+
+      return new Response(new Uint8Array(pdfBuffer), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${filename}"`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    } catch (error) {
+      if (error instanceof ContentOverflowError) {
+        return errorResponse('CONTENT_OVERFLOW', error.message, 409);
+      }
+      if (error instanceof RenderTimeoutError) {
+        return errorResponse('TIMEOUT_ERROR', error.message, 504);
+      }
+      console.error('PDF Generation Error:', error);
+      const msg = error instanceof Error ? error.message : 'Error desconocido';
+      return errorResponse('RENDER_ERROR', `Ocurrió un error inesperado al generar el PDF: ${msg}`, 500);
+    }
   } catch (globalError) {
     console.error('Global API Error:', globalError);
     return errorResponse('RENDER_ERROR', 'Ocurrió un error inesperado en el servidor.', 500);

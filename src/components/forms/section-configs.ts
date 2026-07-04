@@ -1,7 +1,7 @@
 import type { SectionKey } from '@/lib/schemas/cv';
 import { MAX_FIELD_LENGTHS } from '@/lib/constants';
 
-export type FieldType = 'text' | 'email' | 'url' | 'date' | 'textarea' | 'list' | 'tags';
+export type FieldType = 'text' | 'email' | 'url' | 'date' | 'textarea' | 'list' | 'tags' | 'rating';
 
 export interface FieldConfig {
   name: string;
@@ -11,6 +11,8 @@ export interface FieldConfig {
   maxLength?: number;
   placeholder?: string;
   markdownHint?: boolean;
+  min?: number;
+  max?: number;
 }
 
 export interface SectionConfig {
@@ -69,7 +71,8 @@ export const SECTION_CONFIGS: Record<SectionKey, SectionConfig> = {
     entryTitle: (e) => (e.name as string) || 'Nueva habilidad',
     fields: [
       { name: 'name', label: 'Nombre', type: 'text', required: true, maxLength: MAX_FIELD_LENGTHS.skillName },
-      { name: 'level', label: 'Nivel', type: 'text', maxLength: MAX_FIELD_LENGTHS.skillLevel, placeholder: 'Ej: Avanzado' },
+      { name: 'level', label: 'Nivel (Texto)', type: 'text', maxLength: MAX_FIELD_LENGTHS.skillLevel, placeholder: 'Ej: Avanzado' },
+      { name: 'rating', label: 'Nivel (Estrellas)', type: 'rating', min: 0, max: 5 },
       { name: 'keywords', label: 'Tecnologías / Palabras clave', type: 'tags' },
     ],
   },

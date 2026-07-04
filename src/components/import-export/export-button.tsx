@@ -32,8 +32,11 @@ export function ExportButton() {
   }, [data]);
 
   return (
-    <Button variant="ghost" size="sm" onClick={handleExport}>
-      {exported ? 'Exportado!' : 'Exportar'}
+    <Button variant="ghost" size="sm" onClick={handleExport} aria-label="Exportar JSON" className="!px-2 md:!px-3">
+      <svg className="w-4 h-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+      </svg>
+      <span className="hidden md:inline">{exported ? '¡Exportado!' : 'Exportar JSON'}</span>
     </Button>
   );
 }

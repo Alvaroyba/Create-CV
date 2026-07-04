@@ -2,7 +2,7 @@
 import type { Page } from 'puppeteer-core';
 import type { PageFormat } from '@/lib/constants';
 import type { CVData } from '@/lib/schemas/cv';
-import { generatePdfHTML, type TemplateOptions } from './template';
+import { generatePdfHTML, type GeneratorOptions } from './templates/generator';
 
 export class ContentOverflowError extends Error {
   readonly code = 'CONTENT_OVERFLOW';
@@ -37,6 +37,7 @@ interface RenderOptions {
   singlePage?: boolean;
   pageFormat?: PageFormat;
   cvData?: CVData;
+  templateId?: string;
 }
 
 async function measureContentHeight(page: Page, html: string): Promise<number> {
@@ -58,8 +59,9 @@ async function autoFitSinglePage(
   page: Page,
   cvData: CVData,
   format: PageFormat,
+  templateId?: string,
 ): Promise<Buffer> {
-  const baseOpts: TemplateOptions = { pageFormat: format };
+  const baseOpts: GeneratorOptions = { pageFormat: format, templateId };
 
   // Try with defaults first
   let html = generatePdfHTML(cvData, baseOpts);
@@ -109,6 +111,7 @@ export async function renderPdf(
   options?: RenderOptions,
 ): Promise<Buffer> {
   const format: PageFormat = options?.pageFormat ?? 'letter';
+  const templateId = options?.templateId;
 
   const renderPromise = async (): Promise<Buffer> => {
     let browser;
@@ -143,7 +146,7 @@ export async function renderPdf(
       const page = await browser.newPage();
 
       if (options?.singlePage && options.cvData) {
-        return await autoFitSinglePage(page, options.cvData, format);
+        return await autoFitSinglePage(page, options.cvData, format, templateId);
       }
 
       await page.setContent(html, { waitUntil: 'load' });

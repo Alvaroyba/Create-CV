@@ -28,6 +28,7 @@ export const LocationSchema = z.object({
 export const BasicsSchema = z.object({
   name: z.string().max(MAX_FIELD_LENGTHS.name).default(''),
   label: z.string().max(MAX_FIELD_LENGTHS.label).default(''),
+  image: z.string().optional(),
   email: z.string().email().optional(),
   phone: z.string().max(30).default(''),
   url: urlField,
@@ -63,6 +64,7 @@ export const SkillSchema = z.object({
   id: z.string(),
   name: z.string().max(MAX_FIELD_LENGTHS.skillName).default(''),
   level: z.string().max(MAX_FIELD_LENGTHS.skillLevel).default(''),
+  rating: z.number().min(0).max(5).optional(),
   keywords: z.array(z.string().max(80)).default([]),
   isActive: z.boolean().default(true),
 });
