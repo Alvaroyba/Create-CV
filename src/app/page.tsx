@@ -4,9 +4,12 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { hasExistingData, clearCV } from '@/lib/storage';
+import { useCVContext } from '@/providers/cv-provider';
+import { createEmptyCVData } from '@/lib/schemas/cv';
 
 function HomePage() {
   const router = useRouter();
+  const cvContext = useCVContext();
   const [hasData, setHasData] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
@@ -18,12 +21,14 @@ function HomePage() {
     if (hasData) {
       setShowConfirm(true);
     } else {
+      cvContext.replaceAll(createEmptyCVData());
       router.push('/editor');
     }
   };
 
   const confirmNew = () => {
     clearCV();
+    cvContext.replaceAll(createEmptyCVData());
     setShowConfirm(false);
     router.push('/editor');
   };
