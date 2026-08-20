@@ -9,6 +9,7 @@ function EditorContent() {
   const { isLoaded } = useCVContext();
   const searchParams = useSearchParams();
   const openPdfImport = searchParams.get('openPdfImport') === '1';
+  const openTailor = searchParams.get('openTailor') === '1';
 
   if (!isLoaded) {
     return (
@@ -24,7 +25,7 @@ function EditorContent() {
     );
   }
 
-  return <EditorLayout initialOpenPdfImport={openPdfImport} />;
+  return <EditorLayout initialOpenPdfImport={openPdfImport} initialOpenTailor={openTailor} />;
 }
 
 export default function EditorPage() {

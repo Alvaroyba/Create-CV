@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Headless CV",
-  description: "Crea tu currículum perfecto. Sin diseño. Sin errores.",
+  title: "Creador de CV - Crea tu Currículum Profesional y Optimizado para ATS",
+  description: "Crea tu currículum perfecto en minutos. Sin complicaciones de diseño, optimizado para pasar filtros ATS y con exportación a PDF de alta calidad.",
 };
 
 export default function RootLayout({

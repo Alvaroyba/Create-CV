@@ -52,7 +52,13 @@ function savePreferences(prefs: PdfPreferences): void {
   } catch { /* ignore */ }
 }
 
-export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfImport?: boolean }) {
+export function EditorLayout({
+  initialOpenPdfImport = false,
+  initialOpenTailor = false,
+}: {
+  initialOpenPdfImport?: boolean;
+  initialOpenTailor?: boolean;
+}) {
   const { data } = useCVContext();
   const { status, lastSaved } = useAutoSave(data);
   const [activeSection, setActiveSection] = useState<string>('basics');
@@ -60,7 +66,7 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
   const [showImport, setShowImport] = useState(false);
   const [showPdfImport, setShowPdfImport] = useState(initialOpenPdfImport);
   const [showAISettings, setShowAISettings] = useState(false);
-  const [showTailor, setShowTailor] = useState(false);
+  const [showTailor, setShowTailor] = useState(initialOpenTailor);
   const [pageSize, setPageSize] = useState<PageFormat>('letter');
   const [singlePage, setSinglePage] = useState(false);
   const [language, setLanguage] = useState<'es' | 'en'>('es');
@@ -117,7 +123,12 @@ export function EditorLayout({ initialOpenPdfImport = false }: { initialOpenPdfI
         <div className="px-4 py-2.5 max-w-screen-2xl mx-auto">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
-              <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap">Creador de CV</h1>
+              <a href="/" className="flex items-center gap-2 group">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-xs">
+                  CV
+                </div>
+                <h1 className="text-lg font-bold text-gray-900 whitespace-nowrap group-hover:text-indigo-600 transition-colors">Creador de CV</h1>
+              </a>
               <div className="hidden sm:block">
                 <SaveIndicator status={status} lastSaved={lastSaved} />
               </div>
