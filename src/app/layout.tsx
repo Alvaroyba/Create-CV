@@ -11,6 +11,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Creador de CV - Crea tu Currículum Profesional y Optimizado para ATS",
   description: "Crea tu currículum perfecto en minutos. Sin complicaciones de diseño, optimizado para pasar filtros ATS y con exportación a PDF de alta calidad.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({

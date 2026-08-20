@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4F46E5" />
+      <stop offset="100%" stop-color="#2563EB" />
+    </linearGradient>
+    <linearGradient id="foldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E0E7FF" />
+      <stop offset="100%" stop-color="#C7D2FE" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Rounded Base Badge -->
+  <rect width="32" height="32" rx="7" fill="url(#bgGrad)" />
+  
+  <!-- Document Base Shape -->
+  <path d="M8 7C8 5.89543 8.89543 5 10 5H18L24 11V25C24 26.1046 23.1046 27 22 27H10C8.89543 27 8 26.1046 8 25V7Z" fill="#FFFFFF" fill-opacity="0.95" />
+  
+  <!-- Document Folded Corner -->
+  <path d="M18 5V10C18 10.5523 18.4477 11 19 11H24L18 5Z" fill="url(#foldGrad)" />
+  
+  <!-- CV Text Lines (Representing Resume structure) -->
+  <rect x="11" y="14" width="10" height="2" rx="1" fill="#4F46E5" />
+  <rect x="11" y="18" width="7" height="1.5" rx="0.75" fill="#6366F1" fill-opacity="0.75" />
+  <rect x="11" y="21.5" width="10" height="1.5" rx="0.75" fill="#6366F1" fill-opacity="0.75" />
+</svg>
