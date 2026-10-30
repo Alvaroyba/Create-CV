@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "ai-server": "opencode serve --port 4096"
   },
   "dependencies": {
     "@sparticuz/chromium-min": "^149.0.0",

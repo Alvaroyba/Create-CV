@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { AI_PROVIDERS } from '@/lib/ai-config';
+import { ApiError, ensureOpenCodeServer } from '@/lib/ai-providers';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,11 +18,34 @@ export async function POST(request: Request) {
   if (!provider) {
     return NextResponse.json({ valid: false, error: 'Proveedor faltante.' }, { status: 400 });
   }
-  if (provider !== 'local' && !apiKey) {
+  if (provider !== 'local' && provider !== 'opencode' && !apiKey) {
     return NextResponse.json({ valid: false, error: 'API key faltante.' }, { status: 400 });
   }
 
   try {
+    if (provider === 'opencode') {
+      try {
+        const base = await ensureOpenCodeServer(baseUrl);
+        const res = await fetch(`${base}/global/health`, { signal: AbortSignal.timeout(10_000) });
+        if (!res.ok) {
+          return NextResponse.json({ valid: false, error: `OpenCode respondió con error (${res.status}).` });
+        }
+        const data = await res.json();
+        if (!data?.healthy) {
+          return NextResponse.json({ valid: false, error: 'OpenCode no está saludable.' });
+        }
+        return NextResponse.json({
+          valid: true,
+          models: AI_PROVIDERS.opencode.models.map((m) => m.id),
+        });
+      } catch (err) {
+        return NextResponse.json({
+          valid: false,
+          error: err instanceof ApiError ? err.message : 'No se pudo conectar con OpenCode.',
+        });
+      }
+    }
+
     if (provider === 'local' || provider === 'openai') {
       try {
         const client = new OpenAI({
