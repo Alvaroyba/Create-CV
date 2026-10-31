@@ -11,7 +11,7 @@ export const maxDuration = 90;
 interface TailorRequest {
   jobOffer: string;
   cvData?: CVData;
-  provider: 'openai' | 'anthropic' | 'gemini' | 'local';
+  provider: 'opencode' | 'openai' | 'anthropic' | 'gemini' | 'local';
   apiKey: string;
   model: string;
   baseUrl?: string;
@@ -58,8 +58,8 @@ function sanitizeAiOutput(raw: Record<string, unknown>): Record<string, unknown>
   if (sanitized.basics && typeof sanitized.basics === 'object') {
     const basics = { ...(sanitized.basics as Record<string, unknown>) };
 
-    if (typeof basics.email === 'string' && basics.email) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basics.email)) delete basics.email;
+    if (typeof basics.email === 'string') {
+      if (!basics.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(basics.email)) delete basics.email;
     }
     if (typeof basics.url === 'string' && basics.url && !isValidUrl(basics.url)) {
       basics.url = '';
@@ -122,7 +122,7 @@ export async function POST(request: Request) {
   if (!provider || !model) {
     return NextResponse.json({ error: 'Parámetros faltantes.' }, { status: 400 });
   }
-  if (provider !== 'local' && !apiKey) {
+  if (provider !== 'local' && provider !== 'opencode' && !apiKey) {
     return NextResponse.json({ error: 'API key requerida.' }, { status: 400 });
   }
 

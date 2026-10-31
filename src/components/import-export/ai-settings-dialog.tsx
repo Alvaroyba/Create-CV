@@ -5,6 +5,7 @@ import { Modal } from '@/components/ui/modal';
 import { Button } from '@/components/ui/button';
 import {
   AI_PROVIDERS,
+  OPENCODE_DEFAULT_BASE_URL,
   loadAIConfig,
   saveAIConfig,
   clearAIConfig,
@@ -19,10 +20,10 @@ interface AISettingsDialogProps {
 }
 
 export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
-  const [provider, setProvider] = useState<AIProvider>('local');
-  const [model, setModel] = useState('llama3.1');
+  const [provider, setProvider] = useState<AIProvider>('opencode');
+  const [model, setModel] = useState('deepseek-v4.1-flash-free');
   const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('');
+  const [baseUrl, setBaseUrl] = useState(OPENCODE_DEFAULT_BASE_URL);
   const [showKey, setShowKey] = useState(false);
   const [verifyState, setVerifyState] = useState<VerifyState>('idle');
   const [verifyError, setVerifyError] = useState('');
@@ -38,10 +39,10 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
       setBaseUrl(config.baseUrl || '');
       setVerifyState('idle');
     } else {
-      setProvider('local');
-      setModel('llama3.1');
+      setProvider('opencode');
+      setModel('deepseek-v4.1-flash-free');
       setApiKey('');
-      setBaseUrl('');
+      setBaseUrl(OPENCODE_DEFAULT_BASE_URL);
       setVerifyState('idle');
       setFetchedModels([]);
     }
@@ -51,15 +52,18 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
   const handleProviderChange = useCallback((newProvider: AIProvider) => {
     setProvider(newProvider);
     setModel(AI_PROVIDERS[newProvider].models[0]?.id || '');
+    setBaseUrl(newProvider === 'opencode' ? OPENCODE_DEFAULT_BASE_URL : '');
     setVerifyState('idle');
     setFetchedModels([]);
   }, []);
 
   const isLocal = provider === 'local';
+  const isOpencode = provider === 'opencode';
+  const needsApiKey = !isLocal && !isOpencode;
   const isDynamicModels = AI_PROVIDERS[provider].models.length === 0;
 
   const handleVerify = useCallback(async () => {
-    if (!isLocal && !apiKey.trim()) return;
+    if (needsApiKey && !apiKey.trim()) return;
     setVerifyState('verifying');
     setVerifyError('');
 
@@ -86,18 +90,18 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
       setVerifyState('invalid');
       setVerifyError('No se pudo verificar la clave.');
     }
-  }, [apiKey, baseUrl, provider, isLocal, model]);
+  }, [apiKey, baseUrl, provider, needsApiKey, model]);
 
   const handleSave = useCallback(() => {
     const config: AIConfig = {
       provider,
       apiKey: apiKey.trim(),
-      model: model.trim() || 'llama3.1',
-      baseUrl: isLocal ? baseUrl.trim() : undefined,
+      model: model.trim() || AI_PROVIDERS[provider].models[0]?.id || 'llama3.1',
+      baseUrl: isLocal || isOpencode ? baseUrl.trim() : undefined,
     };
     saveAIConfig(config);
     onClose();
-  }, [provider, apiKey, model, baseUrl, onClose, isLocal]);
+  }, [provider, apiKey, model, baseUrl, onClose, isLocal, isOpencode]);
 
   const handleClear = useCallback(() => {
     clearAIConfig();
@@ -125,44 +129,56 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
 
 
 
-        {isLocal && (
+        {(isLocal || isOpencode) && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Base URL (Endpoint)</label>
             <input
               type="text"
               value={baseUrl}
               onChange={(e) => { setBaseUrl(e.target.value); setVerifyState('idle'); }}
-              placeholder="Ej. http://localhost:11434/v1"
+              placeholder={isOpencode ? 'Ej. http://127.0.0.1:4096' : 'Ej. http://localhost:11434/v1'}
               className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
             />
-            <p className="text-xs text-gray-500 mt-1">Por defecto intenta Ollama en http://localhost:11434/v1</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {isOpencode
+                ? 'Se inicia automáticamente. Si falla, ejecuta "opencode serve --port 4096". No necesitas API key.'
+                : 'Por defecto intenta Ollama en http://localhost:11434/v1'}
+            </p>
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">API Key {isLocal && '(Opcional para local)'}</label>
-          <div className="relative">
-            <input
-              type={showKey ? 'text' : 'password'}
-              value={apiKey}
-              onChange={(e) => { setApiKey(e.target.value); setVerifyState('idle'); }}
-              placeholder={isLocal ? "sk-..." : "sk-..."}
-              className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => setShowKey(!showKey)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              aria-label={showKey ? 'Ocultar clave' : 'Mostrar clave'}
-            >
-              {showKey ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-              )}
-            </button>
+        {isOpencode ? (
+          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+            <p className="text-xs text-blue-800">
+              Los modelos gratuitos de OpenCode solo funcionan desde OpenCode. Esta app inicia el servidor local automáticamente.
+            </p>
           </div>
-        </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">API Key {isLocal && '(Opcional para local)'}</label>
+            <div className="relative">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); setVerifyState('idle'); }}
+                placeholder="sk-..."
+                className="block w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 text-base focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              />
+              <button
+                type="button"
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                aria-label={showKey ? 'Ocultar clave' : 'Mostrar clave'}
+              >
+                {showKey ? (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-2">
           <Button
@@ -170,9 +186,9 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
             size="sm"
             onClick={handleVerify}
             loading={verifyState === 'verifying'}
-            disabled={!isLocal && !apiKey.trim()}
+            disabled={needsApiKey && !apiKey.trim()}
           >
-            {isLocal ? 'Verificar conexión' : 'Verificar clave'}
+            {isLocal || isOpencode ? 'Verificar conexión' : 'Verificar clave'}
           </Button>
           {verifyState === 'valid' && (
             <span className="text-sm text-green-600 font-medium">Conexión válida</span>
@@ -217,14 +233,14 @@ export function AISettingsDialog({ open, onClose }: AISettingsDialogProps) {
         </div>
 
         <div className="flex justify-between pt-2">
-          <Button variant="ghost" size="sm" onClick={handleClear} disabled={isLocal ? false : !apiKey}>
+          <Button variant="ghost" size="sm" onClick={handleClear} disabled={needsApiKey && !apiKey}>
             Borrar configuración
           </Button>
           <Button
             variant="primary"
             size="sm"
             onClick={handleSave}
-            disabled={!isLocal && !apiKey.trim()}
+            disabled={needsApiKey && !apiKey.trim()}
           >
             Guardar
           </Button>

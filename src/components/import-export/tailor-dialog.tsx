@@ -129,17 +129,17 @@ export function TailorDialog({ open, onClose, onOpenSettings }: TailorDialogProp
 
   if (step === 'check-key') {
     return (
-      <Modal open={open} onClose={handleClose} title="API key requerida">
+      <Modal open={open} onClose={handleClose} title="Configuración de IA requerida">
         <div className="space-y-3">
           <p className="text-sm text-gray-600">
-            Para adaptar tu CV necesitas configurar una API key de un proveedor de IA.
+            Para adaptar tu CV usa los modelos gratuitos de OpenCode (local) o configura una API key de otro proveedor de IA.
           </p>
           <Button
             variant="primary"
             size="sm"
             onClick={() => { handleClose(); onOpenSettings(); }}
           >
-            Configurar API key
+            Configurar IA
           </Button>
         </div>
       </Modal>
